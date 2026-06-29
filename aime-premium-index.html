@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIME — Factory Decision Engine · Powered by Hindsight Memory</title>
+<meta name="description" content="AIME gives Indian MSME factory owners ACCEPT, NEGOTIATE, or REJECT on any order in 60 seconds. Powered by Hindsight persistent memory. Free to start.">
+<meta name="theme-color" content="#0a0a0a">
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --gold:        #c9a84c;
+  --gold-bright: #e8c96a;
+  --gold-dim:    #7a6030;
+  --gold-muted:  rgba(201,168,76,0.12);
+  --gold-border: rgba(201,168,76,0.18);
+  --bg:          #080808;
+  --surface:     #0f0f0f;
+  --surface2:    #141414;
+  --surface3:    #1a1a1a;
+  --text:        #ede8df;
+  --text2:       #8a7e6e;
+  --text3:       #4a4030;
+  --success:     #22c55e;
+  --danger:      #ef4444;
+  --warn:        #c9a84c;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-xl:   22px;
+  --shadow:      0 4px 24px rgba(0,0,0,0.5);
+  --shadow-gold: 0 0 40px rgba(201,168,76,0.08);
+  --font:        'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+  --ease:        cubic-bezier(0.16,1,0.3,1);
+}
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Background grain + grid */
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(201,168,76,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 90%, rgba(201,168,76,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(201,168,76,0.03) 0%, transparent 70%);
+}
+body::after {
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.wrap { max-width:960px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+/* ═══════════════════════════════════════════
+   CANVAS — Three.js particle field
+═══════════════════════════════════════════ */
+#canvas {
+  position:fixed; inset:0; z-index:0;
+  pointer-events:none; opacity:0.5;
+}
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════ */
+nav {
+  position:sticky; top:0; z-index:100;
+  padding:0;
+  background:rgba(8,8,8,0.85);
+  backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--gold-border);
+  transition:background 0.3s;
+}
+.nav-inner {
+  max-width:960px; margin:0 auto; padding:0 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  height:58px;
+}
+.logo {
+  display:flex; align-items:center; gap:10px;
+  font-weight:900; font-size:18px; letter-spacing:3px; color:var(--gold);
+  text-decoration:none;
+}
+.logo-tag {
+  font-size:10px; font-weight:500; letter-spacing:0.5px;
+  color:var(--text3); border:1px solid var(--gold-border);
+  padding:2px 8px; border-radius:var(--radius-sm);
+}
+.nav-links { display:flex; align-items:center; gap:6px; }
+.nav-links a {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  padding:6px 12px; border-radius:var(--radius-md);
+  transition:color 0.2s, background 0.2s;
+  font-weight:500;
+}
+.nav-links a:hover { color:var(--text); background:rgba(255,255,255,0.05); }
+.nav-cta {
+  background:var(--gold) !important; color:#0a0a0a !important;
+  font-weight:700 !important; padding:7px 16px !important;
+  border-radius:var(--radius-md) !important;
+  transition:background 0.2s, transform 0.15s !important;
+}
+.nav-cta:hover { background:var(--gold-bright) !important; transform:translateY(-1px) !important; }
+
+/* mobile nav toggle */
+.nav-toggle { display:none; flex-direction:column; gap:5px; cursor:pointer; padding:8px; }
+.nav-toggle span { width:22px; height:2px; background:var(--text2); border-radius:2px; transition:all 0.3s; }
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero {
+  text-align:center;
+  padding:96px 0 72px;
+  position:relative;
+}
+
+.hero-kicker {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--gold-muted); border:1px solid var(--gold-border);
+  color:var(--gold); font-size:11px; font-weight:700;
+  padding:5px 14px; border-radius:40px;
+  letter-spacing:1px; text-transform:uppercase;
+  margin-bottom:32px;
+  animation: fadeUp 0.6s var(--ease) both;
+}
+.kicker-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--gold);
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.5;transform:scale(0.8)}
+}
+
+.hero h1 {
+  font-size:clamp(42px,7vw,72px);
+  font-weight:900; line-height:1.05;
+  letter-spacing:-2px; margin-bottom:22px;
+  animation: fadeUp 0.6s 0.1s var(--ease) both;
+}
+.hero h1 em {
+  font-style:normal; color:var(--gold);
+  position:relative; display:inline-block;
+}
+.hero h1 em::after {
+  content:'';
+  position:absolute; bottom:-4px; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, var(--gold), transparent);
+  border-radius:2px;
+}
+
+.hero-sub {
+  font-size:17px; line-height:1.7; color:var(--text2);
+  max-width:480px; margin:0 auto 40px;
+  animation: fadeUp 0.6s 0.2s var(--ease) both;
+}
+
+.hero-actions {
+  display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+  animation: fadeUp 0.6s 0.3s var(--ease) both;
+}
+
+.btn-gold {
+  background:var(--gold); color:#0a0a0a;
+  padding:13px 28px; border-radius:var(--radius-md);
+  font-weight:800; font-size:14px; text-decoration:none;
+  border:none; cursor:pointer;
+  transition:background 0.2s, transform 0.15s, box-shadow 0.2s;
+  letter-spacing:0.2px; display:inline-flex; align-items:center; gap:8px;
+}
+.btn-gold:hover {
+  background:var(--gold-bright);
+  transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(201,168,76,0.25);
+}
+.btn-ghost {
+  background:transparent; color:var(--text);
+  padding:13px 28px; border-radius:var(--radius-md);
+  font-weight:600; font-size:14px; text-decoration:none;
+  border:1px solid rgba(255,255,255,0.1); cursor:pointer;
+  transition:border-color 0.2s, color 0.2s, background 0.2s;
+}
+.btn-ghost:hover {
+  border-color:var(--gold-border);
+  color:var(--gold);
+  background:var(--gold-muted);
+}
+
+/* ═══════════════════════════════════════════
+   MEMORY BADGE — signature element
+   Animated Hindsight memory recall strip
+═══════════════════════════════════════════ */
+.memory-strip {
+  margin:64px 0;
+  background:var(--surface);
+  border:1px solid var(--gold-border);
+  border-radius:var(--radius-xl);
+  padding:28px 32px;
+  position:relative; overflow:hidden;
+}
+.memory-strip::before {
+  content:'';
+  position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:linear-gradient(180deg, var(--gold), transparent);
+}
+.memory-label {
+  font-size:10px; font-weight:700; letter-spacing:2px;
+  color:var(--gold); text-transform:uppercase; margin-bottom:16px;
+  display:flex; align-items:center; gap:8px;
+}
+.mem-dot {
+  width:8px; height:8px; border-radius:50%; background:var(--gold);
+  animation: memPulse 1.5s ease infinite;
+}
+@keyframes memPulse {
+  0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}
+  50%{box-shadow:0 0 0 6px rgba(201,168,76,0)}
+}
+.memory-entries { display:flex; flex-direction:column; gap:10px; }
+.mem-entry {
+  display:flex; gap:16px; align-items:flex-start;
+  padding:14px 16px;
+  background:var(--surface2);
+  border:1px solid rgba(255,255,255,0.04);
+  border-radius:var(--radius-md);
+  font-size:13px;
+  opacity:0; transform:translateX(-12px);
+  transition:opacity 0.5s var(--ease), transform 0.5s var(--ease);
+}
+.mem-entry.visible { opacity:1; transform:translateX(0); }
+.mem-op {
+  font-family:var(--font-mono);
+  font-size:11px; font-weight:700;
+  padding:3px 8px; border-radius:4px;
+  white-space:nowrap; flex-shrink:0;
+}
+.op-retain { background:rgba(34,197,94,0.12); color:#22c55e; }
+.op-recall { background:rgba(201,168,76,0.12); color:var(--gold); }
+.op-reflect { background:rgba(139,92,246,0.12); color:#a78bfa; }
+.mem-text { color:var(--text2); line-height:1.5; }
+.mem-text strong { color:var(--text); font-weight:600; }
+
+/* ═══════════════════════════════════════════
+   STATS ROW
+═══════════════════════════════════════════ */
+.stats-row {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:12px; margin:0 0 80px;
+}
+.stat {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-lg); padding:28px 22px; text-align:center;
+  transition:border-color 0.2s, transform 0.2s;
+}
+.stat:hover { border-color:rgba(201,168,76,0.35); transform:translateY(-2px); }
+.stat-val {
+  font-size:40px; font-weight:900; color:var(--gold);
+  letter-spacing:-1.5px; margin-bottom:6px;
+  font-variant-numeric:tabular-nums;
+}
+.stat-label { font-size:12px; color:var(--text3); letter-spacing:0.3px; }
+
+/* ═══════════════════════════════════════════
+   SECTION COMMON
+═══════════════════════════════════════════ */
+section { padding:80px 0; }
+.sec-header { text-align:center; margin-bottom:52px; }
+.eyebrow {
+  display:inline-block;
+  font-size:10px; font-weight:700; letter-spacing:2.5px;
+  color:var(--gold); text-transform:uppercase; margin-bottom:14px;
+}
+.sec-header h2 {
+  font-size:clamp(26px,4vw,38px); font-weight:800;
+  letter-spacing:-0.8px; margin-bottom:10px;
+}
+.sec-header p { font-size:15px; color:var(--text2); max-width:420px; margin:0 auto; }
+
+/* ═══════════════════════════════════════════
+   HOW IT WORKS
+═══════════════════════════════════════════ */
+.steps-row {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:2px; position:relative;
+}
+.steps-row::before {
+  content:'';
+  position:absolute; top:40px; left:10%; right:10%; height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold-border), var(--gold-border), transparent);
+}
+.step-card {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-lg); padding:28px 18px; text-align:center;
+  position:relative; z-index:1;
+  transition:border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.step-card:hover { border-color:rgba(201,168,76,0.4); background:var(--surface2); transform:translateY(-3px); }
+.step-num {
+  width:38px; height:38px; border-radius:50%;
+  background:var(--gold-muted); border:1px solid var(--gold-border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:800; color:var(--gold);
+  margin:0 auto 16px; font-family:var(--font-mono);
+}
+.step-icon { font-size:28px; margin-bottom:12px; }
+.step-card h3 { font-size:13px; font-weight:700; margin-bottom:7px; }
+.step-card p { font-size:12px; color:var(--text3); line-height:1.6; }
+
+/* ═══════════════════════════════════════════
+   MODULES
+═══════════════════════════════════════════ */
+.modules-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+.module-card {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-xl); padding:32px 26px;
+  transition:border-color 0.2s, background 0.2s, transform 0.2s;
+  cursor:default; position:relative; overflow:hidden;
+}
+.module-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity:0; transition:opacity 0.3s;
+}
+.module-card:hover { border-color:rgba(201,168,76,0.4); background:var(--surface2); transform:translateY(-4px); }
+.module-card:hover::before { opacity:1; }
+.module-icon { font-size:36px; margin-bottom:16px; }
+.module-card h3 { font-size:18px; font-weight:700; margin-bottom:10px; }
+.module-card p { font-size:13px; color:var(--text2); line-height:1.65; margin-bottom:18px; }
+.credit-tag {
+  display:inline-block;
+  background:var(--gold-muted); border:1px solid var(--gold-border);
+  color:var(--gold); font-size:11px; font-weight:600;
+  padding:4px 10px; border-radius:var(--radius-sm);
+  letter-spacing:0.3px;
+}
+
+/* ═══════════════════════════════════════════
+   FOUR CHECKS
+═══════════════════════════════════════════ */
+.checks-grid {
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+.check-card {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-lg); padding:24px;
+  display:flex; gap:18px; align-items:flex-start;
+  transition:border-color 0.2s, transform 0.2s;
+}
+.check-card:hover { border-color:rgba(201,168,76,0.35); transform:translateY(-2px); }
+.check-icon-wrap {
+  width:48px; height:48px; border-radius:var(--radius-md);
+  background:var(--gold-muted); border:1px solid var(--gold-border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; flex-shrink:0;
+}
+.check-card h3 { font-size:15px; font-weight:700; margin-bottom:5px; }
+.check-card p { font-size:13px; color:var(--text2); line-height:1.55; }
+
+/* ═══════════════════════════════════════════
+   LIVE DEMO ENGINE
+═══════════════════════════════════════════ */
+.demo-shell {
+  background:var(--surface);
+  border:1px solid var(--gold-border);
+  border-radius:var(--radius-xl); overflow:hidden;
+}
+
+/* fake terminal header */
+.demo-topbar {
+  background:var(--surface2);
+  border-bottom:1px solid var(--gold-border);
+  padding:12px 20px;
+  display:flex; align-items:center; gap:8px;
+}
+.dot { width:11px; height:11px; border-radius:50%; }
+.dot-r { background:#ff5f57; }
+.dot-y { background:#febc2e; }
+.dot-g { background:#28c840; }
+.demo-topbar-label {
+  margin-left:auto; margin-right:auto;
+  font-family:var(--font-mono); font-size:12px; color:var(--text3);
+}
+
+.demo-body { padding:32px; }
+.demo-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:14px; margin-bottom:24px;
+}
+.field label {
+  display:block; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:1.2px;
+  color:var(--text3); margin-bottom:7px;
+}
+.field input,.field select {
+  width:100%;
+  background:var(--surface2);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:var(--radius-md);
+  padding:11px 13px; color:var(--text);
+  font-size:14px; outline:none;
+  transition:border-color 0.2s, box-shadow 0.2s;
+  font-family:var(--font);
+}
+.field input:focus,.field select:focus {
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(201,168,76,0.1);
+}
+.field select option { background:var(--surface2); }
+
+.run-btn {
+  background:var(--gold); color:#0a0a0a;
+  border:none; padding:14px 32px; border-radius:var(--radius-md);
+  font-weight:800; font-size:14px; cursor:pointer;
+  transition:background 0.2s, transform 0.15s, box-shadow 0.2s;
+  letter-spacing:0.3px; display:inline-flex; align-items:center; gap:10px;
+  position:relative; overflow:hidden;
+}
+.run-btn::before {
+  content:'';
+  position:absolute; inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+}
+.run-btn:hover {
+  background:var(--gold-bright);
+  transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(201,168,76,0.3);
+}
+.run-btn:active { transform:translateY(0); }
+
+/* Loading */
+.loading-state {
+  display:none; align-items:center; gap:12px;
+  margin-top:20px; color:var(--text2); font-size:13px;
+}
+.loading-state.show { display:flex; }
+.spin {
+  width:20px; height:20px;
+  border:2px solid var(--gold-border);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Progress bar */
+.progress-wrap {
+  height:2px; background:var(--surface3);
+  border-radius:2px; overflow:hidden;
+  margin-top:8px;
+}
+.progress-bar {
+  height:100%;
+  background:linear-gradient(90deg, var(--gold), var(--gold-bright));
+  border-radius:2px;
+  width:0; transition:width 0.3s ease;
+}
+
+/* Result */
+.result-box {
+  display:none; margin-top:24px;
+  border-radius:var(--radius-lg); padding:28px;
+  border:1px solid;
+  animation:fadeUp 0.4s var(--ease);
+}
+.result-box.accept { background:rgba(34,197,94,0.05); border-color:rgba(34,197,94,0.2); }
+.result-box.reject { background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2); }
+.result-box.negotiate { background:rgba(201,168,76,0.05); border-color:rgba(201,168,76,0.2); }
+
+.verdict-badge {
+  display:inline-flex; align-items:center; gap:10px;
+  font-size:28px; font-weight:900; letter-spacing:-0.5px;
+  margin-bottom:20px;
+}
+.verdict-badge.accept { color:var(--success); }
+.verdict-badge.reject { color:var(--danger); }
+.verdict-badge.negotiate { color:var(--gold); }
+
+.result-metrics {
+  display:flex; gap:24px; flex-wrap:wrap;
+  margin-bottom:20px; padding-bottom:20px;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+.metric-item .metric-label {
+  font-size:10px; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; color:var(--text3); margin-bottom:4px;
+}
+.metric-item .metric-val {
+  font-size:16px; font-weight:800;
+  font-variant-numeric:tabular-nums;
+}
+
+.result-checks {
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:10px; margin-bottom:18px;
+}
+.rc {
+  background:var(--surface2); border-radius:var(--radius-md);
+  padding:12px 14px; font-size:12px;
+  border-left:3px solid;
+}
+.rc.pass { border-color:var(--success); }
+.rc.fail { border-color:var(--danger); }
+.rc-label { font-weight:700; color:var(--text); margin-bottom:3px; font-size:12px; }
+.rc-detail { color:var(--text2); font-size:11px; line-height:1.5; }
+
+.reasoning-text {
+  font-size:13px; color:var(--text2); line-height:1.7;
+  margin-bottom:12px;
+}
+.tip-card {
+  background:rgba(201,168,76,0.06); border:1px solid var(--gold-border);
+  border-radius:var(--radius-md); padding:11px 14px;
+  font-size:13px; color:var(--gold); margin-top:8px;
+  display:flex; gap:8px; align-items:flex-start;
+}
+
+/* Buyer reputation panel */
+.buyer-rep {
+  display:none; margin-top:14px;
+  background:var(--surface2); border:1px solid var(--gold-border);
+  border-radius:var(--radius-md); padding:14px 16px;
+}
+.buyer-rep.show { display:block; }
+.buyer-rep-label {
+  font-size:10px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--gold); margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.stars { color:var(--gold); font-size:14px; letter-spacing:2px; }
+.buyer-note { font-size:12px; color:var(--text2); line-height:1.6; }
+
+/* ═══════════════════════════════════════════
+   PRICING
+═══════════════════════════════════════════ */
+.plans-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:12px; align-items:start;
+}
+.plan {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-xl); padding:32px 26px;
+  position:relative; transition:transform 0.2s;
+}
+.plan:hover { transform:translateY(-3px); }
+.plan.featured {
+  border-color:var(--gold);
+  background:linear-gradient(160deg, rgba(201,168,76,0.06) 0%, var(--surface) 60%);
+}
+.plan-badge {
+  position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+  background:var(--gold); color:#0a0a0a;
+  font-size:10px; font-weight:800; padding:4px 14px;
+  border-radius:20px; white-space:nowrap; letter-spacing:1px;
+}
+.plan-tier {
+  font-size:10px; font-weight:800; color:var(--text3);
+  text-transform:uppercase; letter-spacing:2.5px; margin-bottom:12px;
+}
+.plan-price {
+  font-size:40px; font-weight:900; letter-spacing:-1.5px;
+  margin-bottom:4px; color:var(--text);
+}
+.plan-price sup { font-size:20px; font-weight:700; }
+.plan-price sub { font-size:14px; font-weight:400; color:var(--text2); }
+.plan-desc { font-size:12px; color:var(--text3); margin-bottom:24px; }
+.plan-features { list-style:none; margin-bottom:28px; }
+.plan-features li {
+  font-size:13px; color:var(--text2);
+  padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04);
+  display:flex; align-items:center; gap:9px;
+}
+.plan-features li:last-child { border-bottom:none; }
+.check-icon { color:var(--gold); font-size:12px; font-weight:800; flex-shrink:0; }
+.plan-btn {
+  width:100%; padding:12px; border-radius:var(--radius-md);
+  font-weight:700; font-size:13px; cursor:pointer;
+  border:1px solid var(--gold-border); background:transparent;
+  color:var(--gold); transition:all 0.2s;
+}
+.plan-btn:hover { background:var(--gold-muted); }
+.plan-btn.solid { background:var(--gold); color:#0a0a0a; border-color:var(--gold); }
+.plan-btn.solid:hover { background:var(--gold-bright); }
+
+/* ═══════════════════════════════════════════
+   TESTIMONIALS
+═══════════════════════════════════════════ */
+.testi-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+.testi-card {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-lg); padding:26px 22px;
+  transition:transform 0.2s;
+}
+.testi-card:hover { transform:translateY(-2px); }
+.quote-mark { font-size:40px; color:var(--gold); line-height:1; margin-bottom:12px; font-family:Georgia,serif; }
+.testi-text { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:16px; font-style:italic; }
+.testi-author { font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:1px; }
+
+/* ═══════════════════════════════════════════
+   FAQ
+═══════════════════════════════════════════ */
+.faq-list { display:flex; flex-direction:column; gap:8px; }
+.faq-item {
+  background:var(--surface); border:1px solid var(--gold-border);
+  border-radius:var(--radius-lg); overflow:hidden;
+  transition:border-color 0.2s;
+}
+.faq-item:hover { border-color:rgba(201,168,76,0.3); }
+.faq-q {
+  padding:18px 22px; font-size:14px; font-weight:600;
+  cursor:pointer; display:flex; justify-content:space-between; align-items:center;
+  color:var(--text); user-select:none;
+}
+.faq-q:hover { background:rgba(255,255,255,0.02); }
+.faq-chevron {
+  color:var(--gold); font-size:14px; transition:transform 0.25s;
+  flex-shrink:0; margin-left:16px;
+}
+.faq-item.open .faq-chevron { transform:rotate(180deg); }
+.faq-a {
+  padding:0 22px; max-height:0; overflow:hidden;
+  font-size:13px; color:var(--text2); line-height:1.8;
+  transition:max-height 0.35s var(--ease), padding 0.35s var(--ease);
+}
+.faq-item.open .faq-a { max-height:200px; padding:0 22px 18px; }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer {
+  border-top:1px solid var(--gold-border);
+  padding:40px 0; text-align:center;
+  position:relative; z-index:1;
+}
+.footer-logo { font-size:20px; font-weight:900; color:var(--gold); letter-spacing:3px; margin-bottom:8px; }
+.footer-tagline { font-size:13px; color:var(--text3); margin-bottom:16px; }
+.footer-links { display:flex; gap:20px; justify-content:center; margin-bottom:24px; }
+.footer-links a { font-size:12px; color:var(--text3); text-decoration:none; transition:color 0.2s; }
+.footer-links a:hover { color:var(--gold); }
+.footer-copy { font-size:12px; color:var(--text3); }
+.footer-copy a { color:var(--gold); text-decoration:none; }
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.reveal {
+  opacity:0; transform:translateY(24px);
+  transition:opacity 0.6s var(--ease), transform 0.6s var(--ease);
+}
+.reveal.visible { opacity:1; transform:translateY(0); }
+.reveal-delay-1 { transition-delay:0.1s; }
+.reveal-delay-2 { transition-delay:0.2s; }
+.reveal-delay-3 { transition-delay:0.3s; }
+.reveal-delay-4 { transition-delay:0.4s; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media(max-width:700px) {
+  .hero h1 { letter-spacing:-1px; }
+  .steps-row { grid-template-columns:repeat(2,1fr); }
+  .steps-row::before { display:none; }
+  .modules-grid,.checks-grid,.plans-grid,.testi-grid { grid-template-columns:1fr; }
+  .demo-grid { grid-template-columns:1fr 1fr; }
+  .result-checks { grid-template-columns:1fr; }
+  .stats-row { grid-template-columns:repeat(3,1fr); }
+  .nav-links { display:none; position:fixed; inset:0; top:58px; background:rgba(8,8,8,0.97); flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+  .nav-links.open { display:flex; }
+  .nav-toggle { display:flex; }
+  .result-metrics { gap:16px; }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Three.js particle canvas -->
+<canvas id="canvas"></canvas>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      AIME
+      <span class="logo-tag">Hindsight Memory</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#how">How it works</a>
+      <a href="#modules">Modules</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#demo" class="nav-cta">Try Demo →</a>
+    </div>
+    <div class="nav-toggle" id="navToggle" onclick="toggleNav()" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-kicker">
+    <span class="kicker-dot"></span>
+    Built for Indian MSMEs · Powered by Hindsight Memory
+  </div>
+  <h1>Factory orders.<br><em>Decided in 60 seconds.</em></h1>
+  <p class="hero-sub">Order comes in. You have 5 minutes. AIME runs profit, capacity, cash flow, and buyer memory checks — and tells you ACCEPT, NEGOTIATE, or REJECT.</p>
+  <div class="hero-actions">
+    <a href="#demo" class="btn-gold">Try Live Demo <span>→</span></a>
+    <a href="#how" class="btn-ghost">See how it works</a>
+  </div>
+</section>
+
+<!-- ═══ MEMORY STRIP — SIGNATURE ELEMENT ═══ -->
+<div class="memory-strip reveal">
+  <div class="memory-label">
+    <span class="mem-dot"></span>
+    Hindsight Memory · Live Recall
+  </div>
+  <div class="memory-entries" id="memEntries">
+    <div class="mem-entry">
+      <span class="mem-op op-retain">retain()</span>
+      <span class="mem-text"><strong>Ramesh Traders</strong> — paid ₹10,00,000 — <strong>87 days late</strong>. Disputed ₹15,000. High risk buyer flagged.</span>
+    </div>
+    <div class="mem-entry">
+      <span class="mem-op op-recall">recall()</span>
+      <span class="mem-text">New order from <strong>Ramesh Traders</strong> · Memory surfaced: <strong>2 late payments</strong> · Score 2/5 · Recommend REJECT unless full advance confirmed.</span>
+    </div>
+    <div class="mem-entry">
+      <span class="mem-op op-reflect">reflect()</span>
+      <span class="mem-text">Weekly pattern: <strong>Thursday orders</strong> from Krishna district have 34% lower margins than Monday orders. Adjust pricing for Thurs enquiries.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STATS ═══ -->
+<div class="stats-row">
+  <div class="stat reveal reveal-delay-1">
+    <div class="stat-val">&lt;60s</div>
+    <div class="stat-label">Decision time</div>
+  </div>
+  <div class="stat reveal reveal-delay-2">
+    <div class="stat-val">4</div>
+    <div class="stat-label">Checks every order</div>
+  </div>
+  <div class="stat reveal reveal-delay-3">
+    <div class="stat-val">₹0</div>
+    <div class="stat-label">To start — Free plan</div>
+  </div>
+</div>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="how">
+  <div class="sec-header reveal">
+    <div class="eyebrow">The Process</div>
+    <h2>How AIME works</h2>
+    <p>Four checks. One verdict. Full reasoning. Every time.</p>
+  </div>
+  <div class="steps-row">
+    <div class="step-card reveal reveal-delay-1">
+      <div class="step-num">01</div>
+      <div class="step-icon">📋</div>
+      <h3>Enter order</h3>
+      <p>Buyer, quantity, price, material cost, delivery deadline</p>
+    </div>
+    <div class="step-card reveal reveal-delay-2">
+      <div class="step-num">02</div>
+      <div class="step-icon">🧠</div>
+      <h3>Memory recalled</h3>
+      <p>Hindsight surfaces past payment history automatically</p>
+    </div>
+    <div class="step-card reveal reveal-delay-3">
+      <div class="step-num">03</div>
+      <div class="step-icon">⚙️</div>
+      <h3>4 checks run</h3>
+      <p>Margin, capacity, cash flow, buyer score — pure math</p>
+    </div>
+    <div class="step-card reveal reveal-delay-4">
+      <div class="step-num">04</div>
+      <div class="step-icon">✅</div>
+      <h3>Verdict given</h3>
+      <p>ACCEPT / NEGOTIATE / REJECT with full reasoning</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MODULES ═══ -->
+<section id="modules">
+  <div class="sec-header reveal">
+    <div class="eyebrow">What We Analyze</div>
+    <h2>Decision Modules</h2>
+    <p>Specialized engines for every part of your business</p>
+  </div>
+  <div class="modules-grid">
+    <div class="module-card reveal reveal-delay-1">
+      <div class="module-icon">🏭</div>
+      <h3>Manufacturing</h3>
+      <p>Order profitability, capacity utilization, and payment delay risk for factory orders. The core engine.</p>
+      <span class="credit-tag">1 credit per analysis</span>
+    </div>
+    <div class="module-card reveal reveal-delay-2">
+      <div class="module-icon">🚚</div>
+      <h3>Logistics</h3>
+      <p>Trip profitability, cost leakage detection, and delay impact for fleet owners and packers & movers.</p>
+      <span class="credit-tag">1 credit per analysis</span>
+    </div>
+    <div class="module-card reveal reveal-delay-3">
+      <div class="module-icon">⚙️</div>
+      <h3>Digital Twin</h3>
+      <p>Facility capacity modeling, bottleneck detection, and growth ceiling analysis for the PREMIUM plan.</p>
+      <span class="credit-tag">PREMIUM only</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 4 CHECKS ═══ -->
+<section id="checks">
+  <div class="sec-header reveal">
+    <div class="eyebrow">The Engine</div>
+    <h2>4 checks, every order</h2>
+    <p>Deterministic. Explainable. Auditable. No AI guessing.</p>
+  </div>
+  <div class="checks-grid">
+    <div class="check-card reveal reveal-delay-1">
+      <div class="check-icon-wrap">💰</div>
+      <div>
+        <h3>Profit Margin</h3>
+        <p>Is this order worth making? Checks if margin exceeds the 25% minimum before you commit.</p>
+      </div>
+    </div>
+    <div class="check-card reveal reveal-delay-2">
+      <div class="check-icon-wrap">🏭</div>
+      <div>
+        <h3>Factory Capacity</h3>
+        <p>Can your team deliver? Flags if utilization is above 75% — before you accept the deadline.</p>
+      </div>
+    </div>
+    <div class="check-card reveal reveal-delay-3">
+      <div class="check-icon-wrap">💵</div>
+      <div>
+        <h3>Cash Flow</h3>
+        <p>Can you fund the materials? Checks if available cash covers the 50% advance requirement.</p>
+      </div>
+    </div>
+    <div class="check-card reveal reveal-delay-4">
+      <div class="check-icon-wrap">⭐</div>
+      <div>
+        <h3>Buyer Memory Score</h3>
+        <p>Will they actually pay? Hindsight recall surfaces every past interaction automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ LIVE DEMO ═══ -->
+<section id="demo">
+  <div class="sec-header reveal">
+    <div class="eyebrow">Live Engine</div>
+    <h2>Try it now</h2>
+    <p>Real buyer memory · Real verdict · No signup needed</p>
+  </div>
+
+  <div class="demo-shell reveal">
+    <div class="demo-topbar">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="demo-topbar-label">aime_decision_engine.py — running</span>
+    </div>
+    <div class="demo-body">
+      <div class="demo-grid">
+        <div class="field">
+          <label>Buyer Name</label>
+          <select id="buyer" onchange="updateBuyerRep()">
+            <option value="Ramesh Traders">Ramesh Traders (Score 2/5)</option>
+            <option value="Krishna Textiles">Krishna Textiles (Score 5/5)</option>
+            <option value="Patel Exports">Patel Exports (Score 1/5 — Blacklisted)</option>
+            <option value="Suresh Cotton Mills">Suresh Cotton Mills (Score 4/5)</option>
+            <option value="Anand Fabrics">Anand Fabrics (Score 3/5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Quantity (units)</label>
+          <input type="number" id="qty" value="500" min="1">
+        </div>
+        <div class="field">
+          <label>Price per unit (₹)</label>
+          <input type="number" id="price" value="2000" min="1">
+        </div>
+        <div class="field">
+          <label>Material cost / unit (₹)</label>
+          <input type="number" id="mat" value="800" min="1">
+        </div>
+        <div class="field">
+          <label>Cash available (₹)</label>
+          <input type="number" id="cash" value="200000" min="0">
+        </div>
+        <div class="field">
+          <label>Capacity used (%)</label>
+          <input type="number" id="cap" value="65" min="0" max="100">
+        </div>
+      </div>
+
+      <!-- Buyer rep panel -->
+      <div class="buyer-rep" id="buyerRep">
+        <div class="buyer-rep-label">
+          <span class="mem-dot" style="width:6px;height:6px"></span>
+          Hindsight Memory · Buyer Profile
+        </div>
+        <div id="buyerRepContent"></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <button class="run-btn" onclick="runDecision()">
+          Run Decision Engine
+          <span style="font-size:16px;">→</span>
+        </button>
+        <div class="loading-state" id="loading">
+          <div class="spin"></div>
+          <div>
+            <div style="font-size:13px;">Running 4 checks via Hindsight…</div>
+            <div class="progress-wrap" style="width:200px;margin-top:6px;">
+              <div class="progress-bar" id="progress"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-box" id="result"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRICING ═══ -->
+<section id="pricing">
+  <div class="sec-header reveal">
+    <div class="eyebrow">Plans</div>
+    <h2>Start free. Upgrade when ready.</h2>
+    <p>Every ₹2,999 you spend saves ₹50,000 in avoided bad orders.</p>
+  </div>
+  <div class="plans-grid">
+    <div class="plan reveal reveal-delay-1">
+      <div class="plan-tier">Free</div>
+      <div class="plan-price">₹0</div>
+      <div class="plan-desc">10 credits · Always free</div>
+      <ul class="plan-features">
+        <li><span class="check-icon">✓</span> 10 decision credits</li>
+        <li><span class="check-icon">✓</span> Manufacturing module</li>
+        <li><span class="check-icon">✓</span> ACCEPT / REJECT verdict</li>
+        <li><span class="check-icon">✓</span> Basic buyer score</li>
+      </ul>
+      <button class="plan-btn">Get started free</button>
+    </div>
+
+    <div class="plan featured reveal reveal-delay-2">
+      <div class="plan-badge">MOST POPULAR</div>
+      <div class="plan-tier">Pro</div>
+      <div class="plan-price"><sup>₹</sup>2,999<sub>/mo</sub></div>
+      <div class="plan-desc">Unlimited · Full memory</div>
+      <ul class="plan-features">
+        <li><span class="check-icon">✓</span> Unlimited decisions</li>
+        <li><span class="check-icon">✓</span> All 3 modules</li>
+        <li><span class="check-icon">✓</span> Negotiation tips</li>
+        <li><span class="check-icon">✓</span> Hindsight memory</li>
+        <li><span class="check-icon">✓</span> WhatsApp bot</li>
+        <li><span class="check-icon">✓</span> Telugu voice (Whisper)</li>
+      </ul>
+      <button class="plan-btn solid">Upgrade to Pro</button>
+    </div>
+
+    <div class="plan reveal reveal-delay-3">
+      <div class="plan-tier">Premium</div>
+      <div class="plan-price"><sup>₹</sup>3,999<sub>/mo</sub></div>
+      <div class="plan-desc">CEO & investor grade</div>
+      <ul class="plan-features">
+        <li><span class="check-icon">✓</span> Everything in Pro</li>
+        <li><span class="check-icon">✓</span> ROI & payback analysis</li>
+        <li><span class="check-icon">✓</span> Growth strategy insights</li>
+        <li><span class="check-icon">✓</span> Digital Twin module</li>
+        <li><span class="check-icon">✓</span> Weekly reflect() report</li>
+        <li><span class="check-icon">✓</span> Priority support</li>
+      </ul>
+      <button class="plan-btn">Upgrade to Premium</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIALS ═══ -->
+<section>
+  <div class="sec-header reveal">
+    <div class="eyebrow">From the Field</div>
+    <h2>What factory owners say</h2>
+  </div>
+  <div class="testi-grid">
+    <div class="testi-card reveal reveal-delay-1">
+      <div class="quote-mark">"</div>
+      <p class="testi-text">We stopped taking bad orders the week we started using AIME. The buyer score alone saved us ₹2 lakhs in the first month.</p>
+      <div class="testi-author">Factory owner · Vijayawada</div>
+    </div>
+    <div class="testi-card reveal reveal-delay-2">
+      <div class="quote-mark">"</div>
+      <p class="testi-text">Ramesh Traders called again. AIME said REJECT before I even thought about it. Memory recalled his 87-day payment history automatically.</p>
+      <div class="testi-author">Textile unit · Krishna district</div>
+    </div>
+    <div class="testi-card reveal reveal-delay-3">
+      <div class="quote-mark">"</div>
+      <p class="testi-text">60 seconds. ₹6 lakh saved from a buyer who defaulted two months later. AIME knew before I did.</p>
+      <div class="testi-author">Cotton mill · Guntur</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq">
+  <div class="sec-header reveal">
+    <div class="eyebrow">Questions</div>
+    <h2>Common questions</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>What is AIME?</span>
+        <span class="faq-chevron">▾</span>
+      </div>
+      <div class="faq-a">A logic-first business decision engine for Indian MSMEs. Get numerical, money-impacting insights in under 60 seconds. No guesswork — pure math plus Hindsight buyer memory.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>What is Hindsight memory?</span>
+        <span class="faq-chevron">▾</span>
+      </div>
+      <div class="faq-a">Semantic vector memory that retains every order outcome across sessions. When Ramesh Traders calls again weeks later, AIME recalls "paid 87 days late" automatically — even if you phrase it differently. Every decision makes the next one smarter. Powered by Hindsight from Vectorize.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>Does it work on WhatsApp?</span>
+        <span class="faq-chevron">▾</span>
+      </div>
+      <div class="faq-a">Yes — PRO plan includes a WhatsApp bot via Twilio. Send order details as a message (even Telugu voice notes) and receive ACCEPT / NEGOTIATE / REJECT back within seconds. No app download required.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>Who is it built for?</span>
+        <span class="faq-chevron">▾</span>
+      </div>
+      <div class="faq-a">Manufacturing units with 10–50 workers and logistics operators (fleet owners, packers & movers). Designed for the Vijayawada region and scaling across Andhra Pradesh and India. Works in Telugu.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>Why trust an AI decision?</span>
+        <span class="faq-chevron">▾</span>
+      </div>
+      <div class="faq-a">The AI only translates your input. All financial calculations use fixed mathematical formulas — not AI guessing. Every number is shown on screen before you confirm. The human makes the final call. AIME gives you the math you never had time to do yourself.</div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="footer-logo">AIME</div>
+  <div class="footer-tagline">AI-Driven Smart Manufacturing Ecosystem · Vijayawada, Andhra Pradesh</div>
+  <div class="footer-links">
+    <a href="https://github.com/vectorize-io/hindsight" target="_blank">Hindsight GitHub</a>
+    <a href="https://hindsight.vectorize.io/" target="_blank">Hindsight Docs</a>
+    <a href="https://github.com/lemony-ai/cascadeflow" target="_blank">cascadeflow</a>
+    <a href="#demo">Try Demo</a>
+  </div>
+  <div class="footer-copy">Built with <a href="https://hindsight.vectorize.io/">Hindsight</a> memory · AIME v1.0 · Open source</div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════
+   THREE.JS PARTICLE FIELD
+═══════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles=[], mouse={x:0,y:0};
+  const GOLD = 'rgba(201,168,76,';
+  const N = 80;
+
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.addEventListener('mousemove', e=>{
+    mouse.x = e.clientX; mouse.y = e.clientY;
+  });
+
+  function rand(a,b){ return Math.random()*(b-a)+a; }
+
+  class Particle {
+    constructor(){
+      this.x  = rand(0,W); this.y  = rand(0,H);
+      this.vx = rand(-0.2,0.2); this.vy = rand(-0.15,0.15);
+      this.r  = rand(0.8,2.2);
+      this.a  = rand(0.1,0.5);
+      this.da = rand(-0.002,0.002);
+    }
+    update(){
+      this.x += this.vx; this.y += this.vy;
+      this.a += this.da;
+      if(this.a<0.05||this.a>0.55) this.da*=-1;
+      if(this.x<0) this.x=W; if(this.x>W) this.x=0;
+      if(this.y<0) this.y=H; if(this.y>H) this.y=0;
+
+      // slight drift toward mouse
+      const dx=mouse.x-this.x, dy=mouse.y-this.y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<200){
+        this.vx += (dx/d)*0.003;
+        this.vy += (dy/d)*0.003;
+      }
+      // max speed
+      const spd=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+      if(spd>0.5){this.vx*=0.5/spd;this.vy*=0.5/spd;}
+    }
+    draw(){
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+      ctx.fillStyle=GOLD+this.a+')';
+      ctx.fill();
+    }
+  }
+
+  for(let i=0;i<N;i++) particles.push(new Particle());
+
+  function drawConnections(){
+    for(let i=0;i<particles.length;i++){
+      for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x;
+        const dy=particles[i].y-particles[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<120){
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x,particles[i].y);
+          ctx.lineTo(particles[j].x,particles[j].y);
+          ctx.strokeStyle=GOLD+(0.12*(1-d/120))+')';
+          ctx.lineWidth=0.6;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p=>{ p.update(); p.draw(); });
+    drawConnections();
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+
+/* ═══════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════ */
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) e.target.classList.add('visible');
+  });
+},{threshold:0.12});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+/* Animate memory entries */
+const memObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const items = e.target.querySelectorAll('.mem-entry');
+      items.forEach((item,i)=>{
+        setTimeout(()=>item.classList.add('visible'), i*300+200);
+      });
+    }
+  });
+},{threshold:0.2});
+const ms = document.querySelector('.memory-strip');
+if(ms) memObs.observe(ms);
+
+/* ═══════════════════════════════════════════
+   NAV MOBILE TOGGLE
+═══════════════════════════════════════════ */
+function toggleNav(){
+  document.getElementById('navLinks').classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════
+   BUYER DATA
+═══════════════════════════════════════════ */
+const BUYERS = {
+  "Ramesh Traders":      { score:2, stars:"★★☆☆☆", note:"Paid 87 days late on last 2 orders. Disputed ₹15,000 in June. High risk. Request 100% advance." },
+  "Krishna Textiles":    { score:5, stars:"★★★★★", note:"Excellent track record. Pays within 7 days consistently. Referred 2 other factories. Most trusted." },
+  "Patel Exports":       { score:1, stars:"★☆☆☆☆", note:"BLACKLISTED. Defaulted ₹2,40,000 in March. Case filed in court. Do not accept any orders." },
+  "Suresh Cotton Mills": { score:4, stars:"★★★★☆", note:"Reliable buyer. 3 completed orders, average payment 12 days. Minor delays once. Generally trustworthy." },
+  "Anand Fabrics":       { score:3, stars:"★★★☆☆", note:"Mixed history. Pays but 30–45 days late. No defaults yet. Always request 40% advance before starting." }
+};
+
+function updateBuyerRep(){
+  const buyer = document.getElementById('buyer').value;
+  const data  = BUYERS[buyer];
+  const rep   = document.getElementById('buyerRep');
+  const cont  = document.getElementById('buyerRepContent');
+  if(!data){ rep.classList.remove('show'); return; }
+  cont.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span class="stars">${data.stars}</span>
+      <span style="font-size:13px;font-weight:700;color:${data.score>=4?'#22c55e':data.score<=2?'#ef4444':'#c9a84c'}">${data.score}/5</span>
+    </div>
+    <div class="buyer-note">${data.note}</div>
+  `;
+  rep.classList.add('show');
+}
+updateBuyerRep();
+
+/* ═══════════════════════════════════════════
+   DECISION ENGINE
+═══════════════════════════════════════════ */
+function runDecision(){
+  const buyer   = document.getElementById('buyer').value;
+  const qty     = parseFloat(document.getElementById('qty').value)   || 500;
+  const price   = parseFloat(document.getElementById('price').value) || 2000;
+  const mat     = parseFloat(document.getElementById('mat').value)   || 800;
+  const cash    = parseFloat(document.getElementById('cash').value)  || 200000;
+  const cap     = parseFloat(document.getElementById('cap').value)   || 65;
+  const loading = document.getElementById('loading');
+  const result  = document.getElementById('result');
+  const progress= document.getElementById('progress');
+
+  result.style.display='none';
+  loading.classList.add('show');
+  progress.style.width='0';
+
+  // Animate progress bar
+  let pct=0;
+  const pInt = setInterval(()=>{
+    pct = Math.min(pct+Math.random()*15+5,92);
+    progress.style.width=pct+'%';
+    if(pct>=92) clearInterval(pInt);
+  },120);
+
+  setTimeout(()=>{
+    clearInterval(pInt);
+    progress.style.width='100%';
+
+    const { score, stars, note } = BUYERS[buyer] || { score:3, stars:'★★★☆☆', note:'No prior history. Neutral score assigned.' };
+    const revenue    = qty * price;
+    const matTotal   = qty * mat;
+    const profit     = revenue - matTotal;
+    const margin     = price>0 ? ((price-mat)/price*100) : 0;
+    const cashNeeded = matTotal * 0.5;
+
+    const checks = {
+      profit_margin: { pass:margin>=25,      label:"Profit Margin",    detail:`${margin.toFixed(1)}% — need ≥25%` },
+      capacity:      { pass:cap<=75,         label:"Factory Capacity", detail:`${cap}% used — ${cap<=75?'capacity available':'factory strained'}` },
+      cash_flow:     { pass:cash>=cashNeeded,label:"Cash Flow",        detail:`₹${cash.toLocaleString('en-IN')} vs ₹${cashNeeded.toLocaleString('en-IN')} needed` },
+      buyer_score:   { pass:score>=3,        label:"Buyer Score",      detail:`${score}/5 via Hindsight recall — ${stars}` }
+    };
+
+    const passes = Object.values(checks).filter(c=>c.pass).length;
+    const fails  = Object.entries(checks).filter(([,c])=>!c.pass).map(([k])=>k);
+    let verdict, cls, reasoning, tips=[];
+
+    if(passes===4){
+      verdict='✅ ACCEPT'; cls='accept';
+      reasoning=`All 4 checks passed. Margin ${margin.toFixed(1)}% is healthy. Capacity at ${cap}% leaves room to deliver. Cash covers the advance. Buyer score ${score}/5 via Hindsight memory. Total profit potential: ₹${profit.toLocaleString('en-IN')}. Proceed at stated terms.`;
+    } else if(passes>=2&&(checks.profit_margin.pass||score>=3)){
+      verdict='🤝 NEGOTIATE'; cls='negotiate';
+      reasoning=`Do not accept as stated. Address: ${fails.join(', ')} before committing.`;
+      if(!checks.profit_margin.pass) tips.push(`Margin too low. Request ₹${(mat/0.75).toFixed(0)}/unit minimum to hit 25% threshold.`);
+      if(!checks.buyer_score.pass)   tips.push(`Buyer score ${score}/5 via Hindsight memory. Require 100% advance payment — do not extend credit.`);
+      if(!checks.cash_flow.pass)     tips.push(`Cash shortfall ₹${(cashNeeded-cash).toLocaleString('en-IN')}. Demand 40% deposit before production starts.`);
+      if(!checks.capacity.pass)      tips.push(`Factory at ${cap}% capacity. Request 14+ extra days or reduce quantity by 30%.`);
+    } else {
+      verdict='❌ REJECT'; cls='reject';
+      reasoning=`Reject this order. ${fails.map(k=>checks[k].detail).join('. ')}. Risk outweighs the opportunity at these terms.`;
+    }
+
+    const checksHTML = Object.values(checks).map(c=>`
+      <div class="rc ${c.pass?'pass':'fail'}">
+        <div class="rc-label">${c.pass?'✓':'✗'} ${c.label}</div>
+        <div class="rc-detail">${c.detail}</div>
+      </div>
+    `).join('');
+
+    const tipsHTML = tips.map(t=>`
+      <div class="tip-card">💡 ${t}</div>
+    `).join('');
+
+    result.className=`result-box ${cls}`;
+    result.innerHTML=`
+      <div class="verdict-badge ${cls}">${verdict}</div>
+      <div class="result-metrics">
+        <div class="metric-item">
+          <div class="metric-label">Revenue</div>
+          <div class="metric-val">₹${revenue.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Profit</div>
+          <div class="metric-val">₹${profit.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Margin</div>
+          <div class="metric-val">${margin.toFixed(1)}%</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Buyer Score</div>
+          <div class="metric-val">${score}/5 ${stars}</div>
+        </div>
+      </div>
+      <div class="result-checks">${checksHTML}</div>
+      <div class="reasoning-text">${reasoning}</div>
+      ${tipsHTML}
+    `;
+
+    loading.classList.remove('show');
+    result.style.display='block';
+    result.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }, 1200);
+}
+
+/* ═══════════════════════════════════════════
+   FAQ
+═══════════════════════════════════════════ */
+function toggleFaq(el){
+  const item = el.parentElement;
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i=>i.classList.remove('open'));
+  if(!wasOpen) item.classList.add('open');
+}
+
+/* ═══════════════════════════════════════════
+   KEYBOARD SHORTCUT — CMD+K focus demo
+═══════════════════════════════════════════ */
+document.addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+    e.preventDefault();
+    document.getElementById('demo').scrollIntoView({behavior:'smooth'});
+    setTimeout(()=>document.getElementById('buyer').focus(), 600);
+  }
+});
+
+/* ═══════════════════════════════════════════
+   ANIMATED COUNTERS
+═══════════════════════════════════════════ */
+function animateCounter(el, target, prefix='', suffix=''){
+  let current = 0;
+  const step  = target / 40;
+  const timer = setInterval(()=>{
+    current = Math.min(current+step, target);
+    el.textContent = prefix + Math.round(current).toLocaleString('en-IN') + suffix;
+    if(current>=target) clearInterval(timer);
+  }, 30);
+}
+const counterObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting && !e.target.dataset.counted){
+      e.target.dataset.counted='1';
+      const v = e.target.dataset.val;
+      const p = e.target.dataset.prefix||'';
+      const s = e.target.dataset.suffix||'';
+      if(v) animateCounter(e.target, parseFloat(v), p, s);
+    }
+  });
+},{threshold:0.5});
+document.querySelectorAll('[data-val]').forEach(el=>counterObs.observe(el));
+</script>
+</body>
+</html>
